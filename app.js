@@ -146,3 +146,15 @@ if('serviceWorker'in navigator){
   if(tracking){pendingReload=true;toast('Mise à jour prête : appliquée à l\'arrêt du GPS')}else location.reload();
  });
 }
+/* ---- Calculateur de trajet rapide ---- */
+$('simBtn').onclick = () => {
+ const km = num($('simDist').value);
+ if (!(km > 0)) {
+  $('simResult').textContent = 'Veuillez entrer une distance valide.';
+  return;
+ };
+ // Calcul : (Distance / 100) * Consommation moyenne * Prix du carburant
+ const liters = (km / 100) * S.v.avg;
+ const cost = liters * S.v.price;
+ $('simResult').textContent = `Coût estimé : ${fmt(cost, 2)} € (${fmt(liters, 1)} L)`;
+};
