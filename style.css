@@ -1,0 +1,55 @@
+:root{--bg:#0c0e11;--panel:#151a20;--line:#232a33;--text:#e9eef3;--mute:#8b96a3;--amber:#ffb02e;--red:#ff3b30;--ok:#3ddbc3;
+--num:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow",system-ui,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 86px)}
+.tab{display:none}.tab.active{display:block}
+b,.speed b{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700}
+small{color:var(--mute);margin-left:4px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 10px}
+.card span,.odo span{display:block;color:var(--mute);font-size:13px}
+.card b{font-size:34px;line-height:1.1}
+.card em{display:block;font-style:normal;color:var(--amber);font-size:13px;margin-top:2px}
+h2{margin:0 0 10px;font-size:17px}
+.gps{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:13px}
+.gps i{width:9px;height:9px;border-radius:50%;background:var(--mute)}
+.gps.ok i{background:var(--ok)}.gps.weak i{background:var(--amber)}.gps.err i{background:var(--red)}
+.speedrow{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px}
+.speed b{font-size:clamp(92px,31vw,150px);line-height:1;letter-spacing:-2px}
+.speed small{font-size:18px}
+.limit{display:flex;flex-direction:column;align-items:center;gap:8px}
+.sign{width:84px;height:84px;border-radius:50%;background:#fff;border:9px solid var(--red);display:grid;place-items:center}
+.sign span{color:#111;font:800 30px var(--num)}
+.limctl{display:flex;gap:4px}
+.limctl button{min-width:34px;height:32px;padding:0 8px;font-size:14px}
+.limctl button[aria-pressed=true]{background:var(--amber);color:#1a1100;border-color:var(--amber)}
+.over .speed b{color:var(--red);animation:blink .6s steps(1) infinite}
+@keyframes blink{50%{opacity:.12}}
+@media(prefers-reduced-motion:reduce){.over .speed b{animation:none;text-shadow:0 0 22px var(--red)}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .card{margin:0}
+.mini{display:flex;align-items:center;gap:10px;margin:12px 0 4px;font-size:14px;color:var(--mute)}
+.mini .bar{flex:1}
+.bar{height:12px;border-radius:7px;background:#222a33;overflow:hidden}
+.bar.lg{height:22px;margin:10px 0}
+.bar i{display:block;height:100%;width:100%;background:var(--amber);border-radius:7px;transition:width .4s}
+.low .bar i,.bar.low i{background:var(--red)}
+.odo{display:flex;align-items:baseline;gap:8px;padding:12px 2px}
+.odo b{font-size:30px}
+.actions{display:flex;gap:10px}.actions button{flex:1}
+button{font:inherit;color:var(--text);background:#1d242c;border:1px solid var(--line);border-radius:12px;min-height:48px;padding:0 14px}
+button:active{transform:scale(.98)}
+.primary{background:var(--amber);border-color:var(--amber);color:#1a1100;font-weight:700}
+.wide{width:100%;margin:0 0 10px}
+.pct b{font-size:84px}.pct small{font-size:24px}
+.two{display:flex;gap:10px}.two>div{flex:1}.two b{font-size:30px}
+label{display:block;color:var(--mute);font-size:13px;margin:0 0 10px}
+input{display:block;width:100%;margin-top:4px;min-height:48px;padding:0 12px;font:inherit;font-size:17px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.chk{display:flex;align-items:center;gap:10px;color:var(--text)}.chk input{width:22px;min-height:22px;margin:0}
+ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+li:first-child{border-top:0}li span{color:var(--mute)}
+.ver{text-align:center;color:var(--mute);font-size:12px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;gap:6px;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);background:rgba(12,14,17,.96);border-top:1px solid var(--line)}
+nav button{flex:1}nav .on{background:var(--panel);border-color:var(--amber);color:var(--amber)}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);transform:translateX(-50%);background:var(--text);color:#111;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;text-align:center}
+#toast.show{opacity:1}

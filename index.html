@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c0e11">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AutoConso Express</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<section id="tab-drive" class="tab active">
+ <div id="hud" class="hud">
+  <div class="gps" id="gps"><i></i><span id="gpsTxt">GPS à l'arrêt</span></div>
+  <div class="speedrow">
+   <div class="speed"><b id="speed">0</b><small>km/h</small></div>
+   <div class="limit">
+    <div class="sign"><span id="limit">50</span></div>
+    <div class="limctl">
+     <button type="button" id="limMinus" aria-label="Limitation inférieure">−</button>
+     <button type="button" id="limAuto" aria-pressed="true">Auto</button>
+     <button type="button" id="limPlus" aria-label="Limitation supérieure">+</button>
+    </div>
+   </div>
+  </div>
+  <div class="grid">
+   <div class="card"><span>Consommation</span><b id="inst">—</b><small id="instU">L/100 km</small><em id="mode">À l'arrêt</em></div>
+   <div class="card"><span>Coût du trajet</span><b id="cost">0,00</b><small>€</small></div>
+   <div class="card"><span>Distance du trajet</span><b id="dist">0,0</b><small>km</small></div>
+   <div class="card"><span>Autonomie</span><b id="rangeHud">—</b><small>km</small></div>
+  </div>
+  <div class="mini"><div class="bar"><i id="barHud"></i></div><span id="fuelHud">—</span></div>
+  <div class="odo"><span>Kilométrage total</span><b id="odo">0</b><small>km</small></div>
+  <div class="actions">
+   <button type="button" id="go" class="primary">Démarrer le GPS</button>
+   <button type="button" id="resetTrip">Nouveau trajet</button>
+  </div>
+ </div>
+</section>
+
+<section id="tab-fuel" class="tab">
+ <div class="card big">
+  <span>Réservoir virtuel</span>
+  <div class="pct"><b id="pct">100</b><small>%</small></div>
+  <div class="bar lg"><i id="bar"></i></div>
+  <div class="two">
+   <div><b id="lit">—</b><small>L restants</small></div>
+   <div><b id="rng">—</b><small>km d'autonomie</small></div>
+  </div>
+ </div>
+ <button type="button" id="full" class="primary wide">Refaire le plein</button>
+ <form id="partial" class="card" autocomplete="off">
+  <h2>Plein partiel</h2>
+  <label>Litres ajoutés<input id="pL" inputmode="decimal" placeholder="ex. 32,5"></label>
+  <label>Prix payé (€)<input id="pE" inputmode="decimal" placeholder="ex. 59,80"></label>
+  <button class="primary wide">Ajouter ce carburant</button>
+ </form>
+ <div class="card"><h2>Derniers pleins</h2><ul id="log"></ul></div>
+</section>
+
+<section id="tab-car" class="tab">
+ <form id="carForm" class="card" autocomplete="off">
+  <h2>Fiche véhicule</h2>
+  <label>Modèle<input id="fModel" placeholder="ex. Renault Clio 1.5 dCi"></label>
+  <label>Kilométrage total (km)<input id="fOdo" inputmode="decimal"></label>
+  <label>Capacité du réservoir (L)<input id="fTank" inputmode="decimal"></label>
+  <label>Consommation moyenne (L/100 km)<input id="fAvg" inputmode="decimal"></label>
+  <label>Prix du carburant (€/L)<input id="fPrice" inputmode="decimal"></label>
+  <button class="primary wide">Enregistrer</button>
+ </form>
+ <p class="ver">AutoConso Express · version <span id="ver"></span></p>
+</section>
+</main>
+
+<nav>
+ <button type="button" data-tab="drive" class="on">Conduite</button>
+ <button type="button" data-tab="fuel">Réservoir</button>
+ <button type="button" data-tab="car">Véhicule</button>
+</nav>
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

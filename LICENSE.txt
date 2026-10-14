@@ -1,0 +1,5 @@
+Copyright (c) 2026 ALXNDR. Tous droits réservés.
+
+Ce code source et l'application AutoConso Express ne peuvent être ni
+copiés, ni modifiés, ni redistribués, ni utilisés, en tout ou partie,
+sans l'autorisation écrite préalable de l'auteur.
