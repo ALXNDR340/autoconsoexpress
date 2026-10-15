@@ -13,10 +13,13 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="splash"><img src="icon-192.png" alt=""><h1>AutoConso Express</h1><div class="sbar"><i></i></div></div>
+<div id="ov" hidden><div class="ring"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" id="ringFg" cx="60" cy="60" r="52"/></svg><b id="updPct">0 %</b></div><p id="updTxt">Mise à jour</p></div>
+<div id="intro" hidden><div class="card"><h2>AutoConso Express</h2><p>L'application a besoin de votre position pour calculer la vitesse, la distance, la consommation et le coût du trajet. Elle reste sur votre appareil. Votre téléphone va maintenant vous demander l'autorisation.</p><button type="button" id="introOk" class="primary wide">Continuer</button></div></div>
 <main>
 <section id="tab-drive" class="tab active">
  <div id="hud" class="hud">
-  <div class="gps" id="gps"><i></i><span id="gpsTxt">GPS à l'arrêt</span></div>
+  <div class="top"><div class="gps" id="gps"><i></i><span id="gpsTxt">GPS à l'arrêt</span></div><div class="tb"><button type="button" id="mini">Mini-HUD</button><button type="button" id="upd">Mettre à jour</button></div></div>
   <div class="speedrow">
    <div class="speed"><b id="speed">0</b><small>km/h</small></div>
    <div class="limit">
@@ -43,6 +46,16 @@
  </div>
 </section>
 
+<section id="tab-trip" class="tab">
+ <form id="routeForm" class="card" autocomplete="off">
+  <h2>Calculateur de trajet</h2>
+  <label>Départ<input id="rFrom" placeholder="ex. Montpellier"></label>
+  <label>Arrivée<input id="rTo" placeholder="ex. Marseille"></label>
+  <button class="primary wide">Calculer</button>
+ </form>
+ <div id="routeRes" class="card" hidden></div>
+</section>
+
 <section id="tab-fuel" class="tab">
  <div class="card big">
   <span>Réservoir virtuel</span>
@@ -67,6 +80,10 @@
  <form id="carForm" class="card" autocomplete="off">
   <h2>Fiche véhicule</h2>
   <label>Modèle<input id="fModel" placeholder="ex. Renault Clio 1.5 dCi"></label>
+  <label>Type de carburant<select id="fType">
+   <optgroup label="Voitures, utilitaires, deux-roues"><option>SP95-E10</option><option>SP95 / SP98</option><option>Superéthanol (E85)</option><option>Gazole / Diesel (B7 ou B10)</option></optgroup>
+   <optgroup label="Camions et poids lourds"><option>Gazole (B7)</option><option>XTL</option><option>GPL ou GNV / GNC</option></optgroup>
+  </select></label>
   <label>Kilométrage total (km)<input id="fOdo" inputmode="decimal"></label>
   <label>Capacité du réservoir (L)<input id="fTank" inputmode="decimal"></label>
   <label>Consommation moyenne (L/100 km)<input id="fAvg" inputmode="decimal"></label>
@@ -79,6 +96,7 @@
 
 <nav>
  <button type="button" data-tab="drive" class="on">Conduite</button>
+ <button type="button" data-tab="trip">Trajet</button>
  <button type="button" data-tab="fuel">Réservoir</button>
  <button type="button" data-tab="car">Véhicule</button>
 </nav>
