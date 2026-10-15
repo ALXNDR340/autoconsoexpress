@@ -1,6 +1,6 @@
 'use strict';
-const VERSION='1.3.0',KEY='autoconso.v1',$=i=>document.getElementById(i);
-const DEF={v:{model:'',odo:180000,tank:50,avg:6.5,price:1.85,type:'SP95-E10'},fuel:null,trip:{km:0,l:0,eur:0},lim:{n:50,auto:true},log:[]};
+const VERSION='1.4.1',KEY='autoconso.v1',$=i=>document.getElementById(i);
+const DEF={v:{model:'',odo:180000,tank:50,avg:6.5,price:1.85,type:'SP95-E10',year:'',hp:'',gear:'Manuelle'},fuel:null,trip:{km:0,l:0,eur:0},lim:{n:50,auto:true},log:[]};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY))||{};return{...structuredClone(DEF),...s,v:{...DEF.v,...s.v},trip:{...DEF.trip,...s.trip},lim:{...DEF.lim,...s.lim}}}catch{return structuredClone(DEF)}}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
@@ -18,7 +18,7 @@ const modeOf=v=>v<3?'À l\'arrêt':v<60?'Ville':v<100?'Route':'Autoroute';
 function burn(dl){dl=Math.min(dl,fuel());S.fuel=fuel()-dl;S.trip.l+=dl;S.trip.eur+=dl*S.v.price}
 
 /* ---- GPS ---- */
-let tracking=false,watchId=null,last=null,speed=0,inst=null,lastFixAt=0,lastTick=0,stopSince=null,wake=null,lastSave=0,pendingReload=false;
+let zeros=0,tracking=false,watchId=null,last=null,speed=0,inst=null,lastFixAt=0,lastTick=0,stopSince=null,wake=null,lastSave=0,pendingReload=false;
 const rad=x=>x*Math.PI/180;
 function hav(a,b){const R=6371000,la=a.lat??a.latitude,lo=a.lon??a.longitude,lb=b.lat??b.latitude,lc=b.lon??b.longitude;
  const h=Math.sin(rad(lb-la)/2)**2+Math.cos(rad(la))*Math.cos(rad(lb))*Math.sin(rad(lc-lo)/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
@@ -30,6 +30,7 @@ function onFix(p){
  let v=c.speed!=null&&!isNaN(c.speed)?c.speed*3.6:null,d=0,segV=null;
  if(last){const dt=(t-last.t)/1000;d=hav(last,c);
   if(dt>0){const dv=d/dt*3.6;if(v==null)v=dv;segV=dv;if(dt>300||dv>250){d=0;segV=null}}}
+ if(v!=null&&v<2&&speed>8&&zeros<3){zeros++;v=segV!=null&&segV>6?segV:speed*.7}else if(v==null||v>=2)zeros=0; // ignore les « 0 » isolés du GPS
  v=v==null||v<2?0:v;speed=v;
  if(v>0){const ci=conso(v);inst=inst==null?ci:inst*.7+ci*.3}
  if(v>0&&d>1&&segV!=null&&c.accuracy<=100){const km=d/1000;S.v.odo+=km;S.trip.km+=km;burn(km*conso(segV)/100)}
@@ -41,7 +42,7 @@ function showIntro(){return new Promise(r=>{$('intro').hidden=false;$('introOk')
 async function start(){
  if(!navigator.geolocation){toast('GPS indisponible sur cet appareil');return}
  if(!localStorage.getItem('ac.geo'))await showIntro();
- tracking=true;$('go').textContent='Arrêter le GPS';last=null;inst=null;lastTick=Date.now();setGps('weak','Recherche du signal…');
+ roadType=null;tracking=true;$('go').textContent='Arrêter le GPS';last=null;inst=null;lastTick=Date.now();setGps('weak','Recherche du signal…');
  watchId=navigator.geolocation.watchPosition(onFix,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:30000});
  try{wake=await navigator.wakeLock?.request('screen')}catch{}
  $('go').textContent='Arrêter le GPS';render();
@@ -59,7 +60,7 @@ setInterval(()=>{
   stopSince=stopSince||now; // ralenti pris en compte 2 min max (ensuite : moteur supposé coupé)
   if(now-stopSince<120000)burn(idleLh()*dt/3600)}
  if(now-lastSave>5000){save();lastSave=now}
- render();
+ if(!document.hidden)render();
 },1000);
 
 /* ---- Limitation de vitesse (OpenStreetMap, ou réglage manuel) ---- */
@@ -67,15 +68,20 @@ const LIMS=[20,30,50,70,80,90,110,130];
 let lastQ={t:0};
 function parseMax(s){s=String(s).trim();const m={'FR:urban':50,'FR:rural':80,'FR:motorway':130,urban:50,rural:80,motorway:130}[s];if(m)return m;
  const r=s.match(/^(\d+)(\s*mph)?$/);return r?(r[2]?Math.round(r[1]*1.609/5)*5:+r[1]):null}
+const CLASS={motorway:['Autoroute',130],motorway_link:['Autoroute',90],trunk:['Route',110],trunk_link:['Route',70],primary:['Route',80],secondary:['Route',80],tertiary:['Route',80],unclassified:['Route',80],residential:['Ville',50],living_street:['Ville',20],service:['Ville',30]};
+let roadType=null;
 async function lookup(c){
- if(!S.lim.auto||!navigator.onLine)return;const now=Date.now();
- if(now-lastQ.t<20000||(lastQ.lat!=null&&now-lastQ.t<120000&&hav(lastQ,c)<80))return;
+ if(!navigator.onLine)return;const now=Date.now();
+ if(now-lastQ.t<8000||(lastQ.lat!=null&&now-lastQ.t<60000&&hav(lastQ,c)<100))return;
  lastQ={t:now,lat:c.latitude,lon:c.longitude};
- try{const ac=new AbortController();setTimeout(()=>ac.abort(),9000);
-  const q=`[out:json][timeout:8];way(around:12,${c.latitude},${c.longitude})[highway][maxspeed];out tags;`;
+ try{const ac=new AbortController();setTimeout(()=>ac.abort(),8000);
+  const q=`[out:json][timeout:7];way(around:15,${c.latitude},${c.longitude})[highway];out tags;`;
   const j=await(await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q),{signal:ac.signal})).json();
-  const ms=j.elements.map(e=>parseMax(e.tags.maxspeed)).filter(Boolean);
-  if(ms.length&&S.lim.auto){S.lim.n=Math.max(...ms);render()}
+  const w=j.elements.map(e=>e.tags).filter(t=>CLASS[t.highway]).sort((x,y)=>(!!y.maxspeed-!!x.maxspeed)||(CLASS[y.highway][1]-CLASS[x.highway][1]))[0];
+  if(!w)return;
+  roadType=CLASS[w.highway][0];
+  if(S.lim.auto)S.lim.n=parseMax(w.maxspeed)||CLASS[w.highway][1];
+  render();
  }catch{}
 }
 function stepLim(dir){
@@ -85,25 +91,30 @@ function stepLim(dir){
 }
 
 /* ---- Affichage ---- */
+let odoStr='';
+function setOdo(){const s=Math.floor(S.v.odo).toString().padStart(6,'0')+Math.floor(S.v.odo*10)%10;if(s===odoStr)return;odoStr=s;$('odo').innerHTML=[...s].map((d,i)=>`<i${i===s.length-1?' class="t"':''}>${d}</i>`).join('')}
 function render(){
  const v=Math.round(speed),T=S.v.tank,f=fuel(),pct=T>0?f/T*100:0,rng=S.v.avg>0?f/S.v.avg*100:0;
  $('speed').textContent=v;$('hud').classList.toggle('over',tracking&&v>S.lim.n);
  $('limit').textContent=S.lim.n;$('limAuto').setAttribute('aria-pressed',S.lim.auto);
  if(tracking&&speed===0){$('inst').textContent=fmt(idleLh(),1);$('instU').textContent='L/h'}
  else{$('inst').textContent=tracking&&inst!=null?fmt(inst,1):'—';$('instU').textContent='L/100 km'}
- $('mode').textContent=tracking?modeOf(speed):'À l\'arrêt';
+ $('mode').textContent=tracking?(speed>0&&roadType?roadType:modeOf(speed)):'À l\'arrêt';
  $('cost').textContent=fmt(S.trip.eur,2);$('dist').textContent=fmt(S.trip.km,1);
- $('rangeHud').textContent=fmt(rng,0);$('odo').textContent=fmt(S.v.odo,1);
+ $('rangeHud').textContent=fmt(rng,0);setOdo();
  $('barHud').style.width=pct+'%';$('fuelHud').textContent=`${fmt(pct,0)} % · ${fmt(f,1)} L`;
- $('bar').style.width=pct+'%';$('pct').textContent=fmt(pct,0);$('lit').textContent=fmt(f,1);$('rng').textContent=fmt(rng,0);
+ $('bar').style.width=pct+'%';$('pct').textContent=fmt(pct,0);$('lit').textContent=fmt(f,1);$('rng').textContent=fmt(rng,0);if(document.activeElement!==$('lvl'))$('lvl').value=Math.round(pct);
  for(const e of[$('barHud'),$('bar')])e.parentElement.classList.toggle('low',pct<15);
 }
 function renderLog(){
  $('log').innerHTML=S.log.length?S.log.slice(0,6).map(l=>`<li><span>${new Date(l.t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span><div>${l.full?'Plein complet':''}${l.l?' '+fmt(l.l,1)+' L':''}${l.eur?' · '+fmt(l.eur,2)+' €':''}</div></li>`).join(''):'<li><span>Aucun plein enregistré</span></li>';
 }
-function fillCar(){const v=S.v;$('fModel').value=v.model;$('fType').value=v.type;$('fOdo').value=String(+v.odo.toFixed(1)).replace('.',',');$('fTank').value=String(v.tank).replace('.',',');$('fAvg').value=String(v.avg).replace('.',',');$('fPrice').value=String(v.price).replace('.',',')}
+function fillCar(){const v=S.v;$('fModel').value=v.model;$('fType').value=v.type;$('fYear').value=v.year;$('fHp').value=v.hp;$('fGear').value=v.gear;$('fOdo').value=String(+v.odo.toFixed(1)).replace('.',',');$('fTank').value=String(v.tank).replace('.',',');$('fAvg').value=String(v.avg).replace('.',',');$('fPrice').value=String(v.price).replace('.',',')}
 
 /* ---- Actions ---- */
+function setLevel(p){S.fuel=S.v.tank*Math.max(0,Math.min(100,p))/100;save();render()}
+$('lvl').oninput=()=>setLevel(+$('lvl').value);
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>setLevel(+b.dataset.p));
 $('go').onclick=()=>tracking?stop():start();
 $('resetTrip').onclick=()=>{S.trip={km:0,l:0,eur:0};inst=null;last=null;save();render();toast('Nouveau trajet démarré')};
 $('limMinus').onclick=()=>stepLim(-1);$('limPlus').onclick=()=>stepLim(1);
@@ -124,7 +135,7 @@ $('partial').onsubmit=e=>{
 $('carForm').onsubmit=e=>{
  e.preventDefault();const o=num($('fOdo').value),t=num($('fTank').value),a=num($('fAvg').value),p=num($('fPrice').value);
  if(!(o>=0)||!(t>0)||!(a>0)||!(p>=0)){toast('Vérifiez les valeurs saisies');return}
- const f=fuel();S.v={model:$('fModel').value.trim(),odo:o,tank:t,avg:a,price:p,type:$('fType').value};S.fuel=Math.min(f,t);
+ const f=fuel();S.v={model:$('fModel').value.trim(),odo:o,tank:t,avg:a,price:p,type:$('fType').value,year:$('fYear').value.trim(),hp:$('fHp').value.trim(),gear:$('fGear').value};S.fuel=Math.min(f,t);
  save();render();toast('Fiche véhicule enregistrée');
 };
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
@@ -141,6 +152,25 @@ addEventListener('pagehide',save);
 /* ---- Mini-HUD (à côté de Waze en écran partagé) ---- */
 $('mini').onclick=()=>{const on=document.body.classList.toggle('compact');$('mini').textContent=on?'Quitter':'Mini-HUD'};
 
+/* ---- Suggestions de villes (données ouvertes de l'État) ---- */
+const CITY=new Map();let cityT;
+function suggest(inp){
+ clearTimeout(cityT);const q=inp.value.trim();if(!q||CITY.has(q))return;
+ cityT=setTimeout(async()=>{
+  try{
+   const short=q.length<3;
+   const u=short?`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&boost=population&fields=nom,centre,departement&limit=8`
+    :`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&type=municipality&autocomplete=1&limit=8`+(last?`&lat=${last.lat}&lon=${last.lon}`:'');
+   const j=await(await fetch(u)).json();
+   const items=short?j.map(x=>({name:x.nom,label:`${x.nom} (${x.departement?x.departement.code:''})`,lon:x.centre.coordinates[0],lat:x.centre.coordinates[1]}))
+    :j.features.map(f=>({name:f.properties.city||f.properties.name,label:`${f.properties.city||f.properties.name} (${(f.properties.context||'').split(',')[0]})`,lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1]}));
+   $('cities').innerHTML='';
+   for(const i of items){CITY.set(i.label,i);const o=document.createElement('option');o.value=i.label;$('cities').appendChild(o)}
+  }catch{}
+ },250);
+}
+$('rFrom').oninput=()=>suggest($('rFrom'));$('rTo').oninput=()=>suggest($('rTo'));
+
 /* ---- Calculateur de trajet (OpenStreetMap : adresses + itinéraire) ---- */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function geo(q){
@@ -153,8 +183,8 @@ $('routeForm').onsubmit=async e=>{
  if(!f||!t){toast('Indiquez un départ et une arrivée');return}
  box.hidden=false;box.textContent='Calcul en cours…';
  try{
-  const A=await geo(f);await new Promise(r=>setTimeout(r,1100)); // Nominatim : 1 requête par seconde
-  const B=await geo(t);
+  const A=CITY.get(f)||await geo(f);if(!CITY.get(f)&&!CITY.get(t))await new Promise(r=>setTimeout(r,1100)); // Nominatim : 1 requête par seconde
+  const B=CITY.get(t)||await geo(t);
   const j=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lon},${A.lat};${B.lon},${B.lat}?overview=false`)).json();
   const rt=j.routes&&j.routes[0];if(!rt)throw new Error('Aucun itinéraire trouvé');
   const km=rt.distance/1000,h=rt.duration/3600,l=km*conso(km/h)/100,eur=l*S.v.price,m=Math.round(h*60);
@@ -163,27 +193,35 @@ $('routeForm').onsubmit=async e=>{
  }catch(err){box.textContent=err.message&&err.message.length<80?err.message:'Calcul impossible : vérifiez votre connexion'}
 };
 
-/* ---- Bouton « Mettre à jour » avec écran de progression ---- */
+/* ---- Mise à jour : automatique au lancement (dans l'écran de démarrage) + bouton ---- */
 const FILES=['index.html','style.css','app.js','manifest.json','icon-180.png','icon-192.png','icon-512.png'];
-function setProg(p,t){$('ringFg').style.strokeDashoffset=327*(1-p/100);$('updPct').textContent=Math.round(p)+' %';if(t)$('updTxt').textContent=t}
-$('upd').onclick=async()=>{
- if(tracking){toast('Arrêtez le GPS avant de mettre à jour');return}
- const b=$('upd');b.disabled=true;toast('Recherche de mise à jour…');
+let updating=false;const t0=Date.now();
+try{sessionStorage.removeItem('ac.skip')}catch{}
+function setProg(p,t){const s=$('splash');s.style.setProperty('--p',p/100);$('spPct').textContent=Math.round(p)+' %';if(t)$('spTxt').textContent=t}
+function hideSplash(){const s=$('splash');if(!s||updating)return;s.classList.add('out');setTimeout(()=>s.classList.add('gone'),450)}
+async function remoteVersion(){const t=await(await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/VERSION='([^']+)'/);return m&&m[1]}
+async function applyUpdate(nv){
+ updating=true;const s=$('splash');s.style.display='';s.classList.remove('out','gone');s.classList.add('upd');
+ setProg(3,'Mise à jour'+(nv?' vers '+nv:''));
+ for(let i=0;i<FILES.length;i++){const r=await fetch(FILES[i],{cache:'no-store'});if(!r.ok)throw 0;await r.blob();setProg(10+(i+1)/FILES.length*70)}
+ setProg(85,'Installation…');
+ for(const k of await caches.keys())await caches.delete(k);
+ const reg=await navigator.serviceWorker?.getRegistration();await reg?.update();
+ try{sessionStorage.setItem('ac.upd',nv||'');sessionStorage.setItem('ac.skip','1')}catch{}
+ setProg(100,'Terminé');setTimeout(()=>location.reload(),600); // au retour : directement dans l'app, sans second écran de démarrage
+}
+async function checkUpdate(manual){
+ if(tracking){if(manual)toast('Arrêtez le GPS avant de mettre à jour');return}
+ if(manual)toast('Recherche de mise à jour…');
  try{
-  const t=await(await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();
-  const m=t.match(/VERSION='([^']+)'/);
-  if(m&&m[1]===VERSION){toast('Déjà à jour (version '+VERSION+')');b.disabled=false;return}
-  $('ov').hidden=false;setProg(5,'Mise à jour'+(m?' vers '+m[1]:''));
-  for(let i=0;i<FILES.length;i++){const r=await fetch(FILES[i],{cache:'no-store'});if(!r.ok)throw 0;await r.blob();setProg(10+(i+1)/FILES.length*70)}
-  setProg(85,'Installation…');
-  for(const k of await caches.keys())await caches.delete(k);
-  const reg=await navigator.serviceWorker?.getRegistration();await reg?.update();
-  setProg(100,'Terminé');setTimeout(()=>location.reload(),700);
- }catch{$('ov').hidden=true;toast('Mise à jour impossible : vérifiez votre connexion');b.disabled=false}
-};
-
-/* ---- Écran de lancement ---- */
-setTimeout(()=>{const s=$('splash');s.classList.add('out');setTimeout(()=>s.remove(),450)},1100);
+  const nv=await Promise.race([remoteVersion(),new Promise((_,j)=>setTimeout(j,6000))]);
+  if(nv&&nv!==VERSION&&!tracking&&(manual||sessionStorage.getItem('ac.upd')!==nv)){await applyUpdate(nv);return}
+  if(manual)toast('Déjà à jour (version '+VERSION+')');
+ }catch{updating=false;hideSplash();if(manual)toast('Mise à jour impossible : vérifiez votre connexion')}
+}
+$('upd').onclick=()=>checkUpdate(true);
+checkUpdate(false).finally(()=>setTimeout(hideSplash,Math.max(0,1100-(Date.now()-t0))));
+setTimeout(hideSplash,3000); // sécurité : l'app ne reste jamais bloquée sur l'écran de démarrage
 
 /* ---- Démarrage & mise à jour automatique ---- */
 $('ver').textContent=VERSION;fillCar();renderLog();render();
