@@ -14,7 +14,7 @@
 </head>
 <body>
 <div id="splash"><img src="icon-192.png" alt=""><h1>AutoConso Express</h1><div class="sbar"><i></i></div><p id="spTxt"></p><b id="spPct"></b></div>
-<script>try{if(sessionStorage.getItem('ac.skip'))document.getElementById('splash').style.display='none'}catch(e){}</script>
+<script>setTimeout(function(){var s=document.getElementById('splash');if(s)s.style.display='none'},8000)</script>
 <div id="intro" hidden><div class="card"><h2>AutoConso Express</h2><p>L'application a besoin de votre position pour calculer la vitesse, la distance, la consommation et le coût du trajet. Elle reste sur votre appareil. Votre téléphone va maintenant vous demander l'autorisation.</p><button type="button" id="introOk" class="primary wide">Continuer</button></div></div>
 <main>
 <section id="tab-drive" class="tab active">

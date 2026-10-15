@@ -193,34 +193,26 @@ $('routeForm').onsubmit=async e=>{
  }catch(err){box.textContent=err.message&&err.message.length<80?err.message:'Calcul impossible : vérifiez votre connexion'}
 };
 
-/* ---- Mise à jour : automatique au lancement (dans l'écran de démarrage) + bouton ---- */
+/* ---- Écran de démarrage : « Mise à jour » seulement à la première ouverture d'une nouvelle version ---- */
 const FILES=['index.html','style.css','app.js','manifest.json','icon-180.png','icon-192.png','icon-512.png'];
-let updating=false;const t0=Date.now();
-try{sessionStorage.removeItem('ac.skip')}catch{}
-function setProg(p,t){const s=$('splash');s.style.setProperty('--p',p/100);$('spPct').textContent=Math.round(p)+' %';if(t)$('spTxt').textContent=t}
-function hideSplash(){const s=$('splash');if(!s||updating)return;s.classList.add('out');setTimeout(()=>s.classList.add('gone'),450)}
-async function remoteVersion(){const t=await(await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/VERSION='([^']+)'/);return m&&m[1]}
-async function applyUpdate(nv){
- updating=true;const s=$('splash');s.style.display='';s.classList.remove('out','gone');s.classList.add('upd');
- setProg(3,'Mise à jour'+(nv?' vers '+nv:''));
- for(let i=0;i<FILES.length;i++){const r=await fetch(FILES[i],{cache:'no-store'});if(!r.ok)throw 0;await r.blob();setProg(10+(i+1)/FILES.length*70)}
- setProg(85,'Installation…');
- for(const k of await caches.keys())await caches.delete(k);
- const reg=await navigator.serviceWorker?.getRegistration();await reg?.update();
- try{sessionStorage.setItem('ac.upd',nv||'');sessionStorage.setItem('ac.skip','1')}catch{}
- setProg(100,'Terminé');setTimeout(()=>location.reload(),600); // au retour : directement dans l'app, sans second écran de démarrage
-}
-async function checkUpdate(manual){
- if(tracking){if(manual)toast('Arrêtez le GPS avant de mettre à jour');return}
- if(manual)toast('Recherche de mise à jour…');
+function setProg(p,t){const s=$('splash');if(!s)return;s.style.setProperty('--p',p/100);$('spPct').textContent=Math.round(p)+' %';if(t)$('spTxt').textContent=t}
+function hideSplash(){const s=$('splash');if(!s)return;s.classList.add('out');setTimeout(()=>s.classList.add('gone'),450)}
+async function runUpdate(){
+ $('splash').classList.add('upd');setProg(5,'Mise à jour vers '+VERSION);
  try{
-  const nv=await Promise.race([remoteVersion(),new Promise((_,j)=>setTimeout(j,6000))]);
-  if(nv&&nv!==VERSION&&!tracking&&(manual||sessionStorage.getItem('ac.upd')!==nv)){await applyUpdate(nv);return}
-  if(manual)toast('Déjà à jour (version '+VERSION+')');
- }catch{updating=false;hideSplash();if(manual)toast('Mise à jour impossible : vérifiez votre connexion')}
+  const c=await caches.open('autoconso-'+VERSION);
+  for(let i=0;i<FILES.length;i++){const r=await fetch(FILES[i],{cache:'no-store'});if(r.ok)await c.put(FILES[i],r);setProg(10+(i+1)/FILES.length*85)}
+ }catch{}
+ setProg(100,'Terminé');await new Promise(r=>setTimeout(r,500));
 }
-checkUpdate(false).finally(()=>setTimeout(hideSplash,Math.max(0,1100-(Date.now()-t0))));
-setTimeout(hideSplash,3000); // sécurité : l'app ne reste jamais bloquée sur l'écran de démarrage
+(async()=>{
+ const t0=Date.now();let prev=null,hadData=false;
+ try{prev=localStorage.getItem('ac.ver');hadData=!!localStorage.getItem(KEY)}catch{}
+ if((prev&&prev!==VERSION)||(!prev&&hadData))await runUpdate();
+ try{localStorage.setItem('ac.ver',VERSION)}catch{}
+ setTimeout(hideSplash,Math.max(0,1100-(Date.now()-t0)));
+})();
+setTimeout(hideSplash,6000); // sécurité : l'app ne reste jamais bloquée sur l'écran de démarrage
 
 /* ---- Démarrage & mise à jour automatique ---- */
 $('ver').textContent=VERSION;fillCar();renderLog();render();
@@ -228,8 +220,4 @@ const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capa
 if(!NATIVE&&'serviceWorker'in navigator){
  const had=!!navigator.serviceWorker.controller;
  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
- navigator.serviceWorker.addEventListener('controllerchange',()=>{
-  if(!had)return;               // première installation : rien à recharger
-  if(tracking){pendingReload=true;toast('Mise à jour prête : appliquée à l\'arrêt du GPS')}else location.reload();
- });
 }
