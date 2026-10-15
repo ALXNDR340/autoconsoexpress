@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='1.4.1',KEY='autoconso.v1',$=i=>document.getElementById(i);
+const VERSION='1.4.2',KEY='autoconso.v1',$=i=>document.getElementById(i);
 const DEF={v:{model:'',odo:180000,tank:50,avg:6.5,price:1.85,type:'SP95-E10',year:'',hp:'',gear:'Manuelle'},fuel:null,trip:{km:0,l:0,eur:0},lim:{n:50,auto:true},log:[]};
 let S=load();
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY))||{};return{...structuredClone(DEF),...s,v:{...DEF.v,...s.v},trip:{...DEF.trip,...s.trip},lim:{...DEF.lim,...s.lim}}}catch{return structuredClone(DEF)}}
@@ -219,14 +219,12 @@ async function checkUpdate(manual){
   if(manual)toast('Déjà à jour (version '+VERSION+')');
  }catch{updating=false;hideSplash();if(manual)toast('Mise à jour impossible : vérifiez votre connexion')}
 }
-$('upd').onclick=()=>checkUpdate(true);
 checkUpdate(false).finally(()=>setTimeout(hideSplash,Math.max(0,1100-(Date.now()-t0))));
 setTimeout(hideSplash,3000); // sécurité : l'app ne reste jamais bloquée sur l'écran de démarrage
 
 /* ---- Démarrage & mise à jour automatique ---- */
 $('ver').textContent=VERSION;fillCar();renderLog();render();
 const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
-if(NATIVE)$('upd').hidden=true; // app Android : les mises à jour passent par le Play Store
 if(!NATIVE&&'serviceWorker'in navigator){
  const had=!!navigator.serviceWorker.controller;
  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
