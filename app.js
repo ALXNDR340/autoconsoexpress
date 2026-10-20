@@ -1,1 +1,303 @@
-'use strict';const VERSION='1.5.0',KEY='autoconso.v1',$=Y=>document['getElementById'](Y),DEF={'v':{'model':'','odo':0x2bf20,'tank':0x32,'avg':6.5,'price':1.85,'type':'SP95-E10','year':'','hp':'','gear':'Manuelle'},'fuel':null,'trip':{'km':0x0,'l':0x0,'eur':0x0},'lim':{'n':0x32,'auto':!![]},'log':[],'plan':{'prof':'150','km':'','rsv':'50'},'cons':{'km':0x0,'l':0x0,'base':![],'list':[],'min':'30'}};let S=load();function load(){try{const Y=JSON['parse'](localStorage['getItem'](KEY))||{};return{...structuredClone(DEF),...Y,'v':{...DEF['v'],...Y['v']},'trip':{...DEF['trip'],...Y['trip']},'lim':{...DEF['lim'],...Y['lim']}};}catch{return structuredClone(DEF);}}const save=()=>{try{localStorage['setItem'](KEY,JSON['stringify'](S));}catch{}},fmt=(Y,N=0x0)=>Number(Y)['toLocaleString']('fr-FR',{'minimumFractionDigits':N,'maximumFractionDigits':N}),num=Y=>parseFloat(String(Y)['replace'](/\s/g,'')['replace'](',','.')),fuel=()=>S['fuel']==null?S['v']['tank']:Math['min'](S['fuel'],S['v']['tank']);function toast(Y){const N=$('toast');N['textContent']=Y,N['classList']['add']('show'),clearTimeout(toast['t']),toast['t']=setTimeout(()=>N['classList']['remove']('show'),0xc80);}const CURVE=[[0x0,1.3],[0xa,1.5],[0x1e,1.25],[0x32,1.05],[0x46,0.88],[0x5a,0.9],[0x6e,1.1],[0x82,1.4],[0x96,1.8],[0xbe,2.6]];function mult(Y){for(let N=0x1;N<CURVE['length'];N++){const Q=CURVE[N-0x1],Z=CURVE[N];if(Y<=Z[0x0])return Q[0x1]+(Z[0x1]-Q[0x1])*(Math['max'](Y,Q[0x0])-Q[0x0])/(Z[0x0]-Q[0x0]);}return CURVE[CURVE['length']-0x1][0x1];}const conso=Y=>S['v']['avg']*mult(Y),idleLh=()=>S['v']['avg']*0.12,modeOf=Y=>Y<0x3?'À\x20l\x27arrêt':Y<0x3c?'Ville':Y<0x64?'Route':'Autoroute';function burn(Y){Y=Math['min'](Y,fuel()),S['fuel']=fuel()-Y,S['trip']['l']+=Y,S['trip']['eur']+=Y*S['v']['price'];}let zeros=0x0,tracking=![],watchId=null,last=null,speed=0x0,inst=null,lastFixAt=0x0,lastTick=0x0,stopSince=null,wake=null,lastSave=0x0,pendingReload=![];const rad=Y=>Y*Math['PI']/0xb4;function hav(Y,N){const Q=0x6136b8,Z=Y['lat']??Y['latitude'],L=Y['lon']??Y['longitude'],l=N['lat']??N['latitude'],m=N['lon']??N['longitude'],O=Math['sin'](rad(l-Z)/0x2)**0x2+Math['cos'](rad(Z))*Math['cos'](rad(l))*Math['sin'](rad(m-L)/0x2)**0x2;return 0x2*Q*Math['asin'](Math['sqrt'](O));}function setGps(Y,N){$('gps')['className']='gps\x20'+Y,$('gpsTxt')['textContent']=N;}function onFix(Y){const N=Y['coords'],Q=Y['timestamp'];if(N['accuracy']>0x78){setGps('weak','Signal\x20GPS\x20faible');return;}lastFixAt=Date['now'](),setGps(N['accuracy']>0x32?'weak':'ok',N['accuracy']>0x32?'GPS\x20approximatif':'GPS\x20actif');let Z=N['speed']!=null&&!isNaN(N['speed'])?N['speed']*3.6:null,L=0x0,l=null;if(last){const b=(Q-last['t'])/0x3e8;L=hav(last,N);if(b>0x0){const m=L/b*3.6;if(Z==null)Z=m;l=m,(b>0x12c||m>0xfa)&&(L=0x0,l=null);}}if(Z!=null&&Z<0x2&&speed>0x8&&zeros<0x3)zeros++,Z=l!=null&&l>0x6?l:speed*0.7;else{if(Z==null||Z>=0x2)zeros=0x0;}Z=Z==null||Z<0x2?0x0:Z,speed=Z;if(Z>0x0){const O=conso(Z);inst=inst==null?O:inst*0.7+O*0.3;}if(Z>0x0&&L>0x1&&l!=null&&N['accuracy']<=0x64){const V=L/0x3e8;S['v']['odo']+=V,S['trip']['km']+=V,S['cons']['km']+=V,burn(V*conso(l)/0x64);}last={'lat':N['latitude'],'lon':N['longitude'],'t':Q},lookup(N),render();}function onErr(Y){if(Y['code']===0x1)setGps('err','Autorisation\x20GPS\x20refusée'),stop();else setGps('weak','Signal\x20GPS\x20perdu');}function showIntro(){return new Promise(Y=>{$('intro')['hidden']=![],$('introOk')['onclick']=()=>{try{localStorage['setItem']('ac.geo','1');}catch{}$('intro')['hidden']=!![],Y();};});}async function start(){if(!navigator['geolocation']){toast('GPS\x20indisponible\x20sur\x20cet\x20appareil');return;}if(!localStorage['getItem']('ac.geo'))await showIntro();roadType=null,tracking=!![],$('go')['textContent']='Arrêter\x20le\x20GPS',last=null,inst=null,lastTick=Date['now'](),setGps('weak','Recherche\x20du\x20signal…'),watchId=navigator['geolocation']['watchPosition'](onFix,onErr,{'enableHighAccuracy':!![],'maximumAge':0x3e8,'timeout':0x7530});try{wake=await navigator['wakeLock']?.['request']('screen');}catch{}$('go')['textContent']='Arrêter\x20le\x20GPS',render();}function stop(){tracking=![];if(watchId!=null)navigator['geolocation']['clearWatch'](watchId);watchId=null;try{wake?.['release']();}catch{}wake=null,speed=0x0,inst=null,stopSince=null,$('go')['textContent']='Démarrer\x20le\x20GPS';if(!$('gps')['classList']['contains']('err'))setGps('','GPS\x20à\x20l\x27arrêt');save(),render();if(pendingReload)location['reload']();}setInterval(()=>{if(!tracking)return;const Y=Date['now'](),N=(Y-lastTick)/0x3e8;lastTick=Y;lastFixAt&&Y-lastFixAt>0x3a98&&(speed=0x0,setGps('weak','Signal\x20GPS\x20perdu'));if(speed>0x0)stopSince=null;else{stopSince=stopSince||Y;if(Y-stopSince<0x1d4c0)burn(idleLh()*N/0xe10);}Y-lastSave>0x1388&&(save(),lastSave=Y);if(!document['hidden'])render();},0x3e8);const LIMS=[0x14,0x1e,0x32,0x46,0x50,0x5a,0x6e,0x82];let lastQ={'t':0x0};function parseMax(Y){Y=String(Y)['trim']();const N={'FR:urban':0x32,'FR:rural':0x50,'FR:motorway':0x82,'urban':0x32,'rural':0x50,'motorway':0x82}[Y];if(N)return N;const Q=Y['match'](/^(\d+)(\s*mph)?$/);return Q?Q[0x2]?Math['round'](Q[0x1]*1.609/0x5)*0x5:+Q[0x1]:null;}const CLASS={'motorway':['Autoroute',0x82],'motorway_link':['Autoroute',0x5a],'trunk':['Route',0x6e],'trunk_link':['Route',0x46],'primary':['Route',0x50],'secondary':['Route',0x50],'tertiary':['Route',0x50],'unclassified':['Route',0x50],'residential':['Ville',0x32],'living_street':['Ville',0x14],'service':['Ville',0x1e]};let roadType=null;async function lookup(Y){if(!navigator['onLine'])return;const N=Date['now']();if(N-lastQ['t']<0x1f40||lastQ['lat']!=null&&N-lastQ['t']<0xea60&&hav(lastQ,Y)<0x64)return;lastQ={'t':N,'lat':Y['latitude'],'lon':Y['longitude']};try{const Q=new AbortController();setTimeout(()=>Q['abort'](),0x1f40);const Z='[out:json][timeout:7];way(around:15,'+Y['latitude']+','+Y['longitude']+')[highway];out\x20tags;',L=await(await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(Z),{'signal':Q['signal']}))['json'](),l=L['elements']['map'](b=>b['tags'])['filter'](b=>CLASS[b['highway']])['sort']((b,m)=>!!m['maxspeed']-!!b['maxspeed']||CLASS[m['highway']][0x1]-CLASS[b['highway']][0x1])[0x0];if(!l)return;roadType=CLASS[l['highway']][0x0];if(S['lim']['auto'])S['lim']['n']=parseMax(l['maxspeed'])||CLASS[l['highway']][0x1];render();}catch{}}function stepLim(Y){let N=LIMS['findIndex'](Q=>Q>=S['lim']['n']);if(N<0x0)N=LIMS['length']-0x1;if(LIMS[N]!==S['lim']['n']&&Y<0x0)N++;S['lim']['n']=LIMS[Math['max'](0x0,Math['min'](LIMS['length']-0x1,N+Y))],S['lim']['auto']=![],save(),render();}let odoStr='';function setOdo(){const Y=Math['floor'](S['v']['odo'])['toString']()['padStart'](0x6,'0')+Math['floor'](S['v']['odo']*0xa)%0xa;if(Y===odoStr)return;odoStr=Y,$('odo')['innerHTML']=[...Y]['map']((N,Q)=>'<i'+(Q===Y['length']-0x1?'\x20class=\x22t\x22':'')+'>'+N+'</i>')['join']('');}const dv=(Y,N)=>String(+Y['toFixed'](N))['replace']('.',','),sync=(Y,N)=>{if(document['activeElement']!==$(Y))$(Y)['value']=N;},getRsv=()=>{const Y=num(S['plan']['rsv']);return Y>=0x0?Y:0x32;},getMin=()=>{const Y=num(S['cons']['min']);return Y>=0x0?Y:0x1e;};function renderExtra(Y,N){const Q=getRsv(),Z=Math['max'](0x0,S['v']['tank']-Y);$('cfL')['textContent']=fmt(Z,0x1),$('cfE')['textContent']=fmt(Z*S['v']['price'],0x2);const L=num($('cfB')['value']);if(L>0x0&&S['v']['price']>0x0){const V=L/S['v']['price'],T=Math['min'](S['v']['tank'],Y+V);$('cfR')['textContent']=fmt(L,0x2)+'\x20€\x20=\x20'+fmt(V,0x1)+'\x20L.\x20Niveau\x20après\x20:\x20'+fmt(T/S['v']['tank']*0x64,0x0)+'\x20%\x20('+fmt(T/S['v']['avg']*0x64,0x0)+'\x20km\x20d\x27autonomie).'+(V>Z?'\x20Attention\x20:\x20cela\x20dépasse\x20le\x20plein,\x20maximum\x20'+fmt(Z*S['v']['price'],0x2)+'\x20€.':'');}else $('cfR')['textContent']='';const l=S['plan']['prof'],m=l==='0'?num(S['plan']['km']):+l;$('plCustom')['hidden']=l!=='0';if(!(m>0x0))$('plRes')['textContent']='Indiquez\x20vos\x20kilomètres\x20par\x20semaine.';else{if(N<=Q)$('plRes')['textContent']='Il\x20reste\x20environ\x20'+fmt(N,0x0)+'\x20km\x20:\x20faites\x20le\x20plein\x20dès\x20que\x20possible.';else{const A=Math['floor']((N-Q)/(m/0x7)),U=new Date(Date['now']()+A*0x5265c00);$('plRes')['textContent']='Avec\x20'+fmt(N,0x0)+'\x20km\x20d\x27autonomie\x20et\x20environ\x20'+fmt(m,0x0)+'\x20km\x20par\x20semaine,\x20prévoyez\x20le\x20plein\x20dans\x20'+A+'\x20jour'+(A>0x1?'s':'')+',\x20vers\x20le\x20'+U['toLocaleDateString']('fr-FR',{'weekday':'long','day':'numeric','month':'long'})+'\x20(en\x20gardant\x20'+Q+'\x20km\x20de\x20réserve).';}}const O=S['cons'];$('realC')['textContent']=O['list']['length']?'Dernière\x20mesure\x20:\x20'+fmt(O['list'][0x0],0x1)+'\x20L/100\x20km\x20(sur\x20'+O['list']['length']+'\x20plein'+(O['list']['length']>0x1?'s':'')+').\x20Depuis\x20le\x20dernier\x20plein\x20:\x20'+fmt(O['km'],0x0)+'\x20km.':O['base']?'Depuis\x20le\x20dernier\x20plein\x20complet\x20:\x20'+fmt(O['km'],0x0)+'\x20km.\x20Indiquez\x20les\x20litres\x20mis\x20à\x20la\x20pompe\x20au\x20prochain\x20plein\x20complet\x20pour\x20mesurer\x20votre\x20vraie\x20consommation.':'Au\x20prochain\x20plein\x20complet,\x20indiquez\x20les\x20litres\x20mis\x20à\x20la\x20pompe\x20:\x20l\x27app\x20mesurera\x20votre\x20vraie\x20consommation.';}function render(){const Y=Math['round'](speed),N=S['v']['tank'],Q=fuel(),Z=N>0x0?Q/N*0x64:0x0,L=S['v']['avg']>0x0?Q/S['v']['avg']*0x64:0x0;$('speed')['textContent']=Y,$('hud')['classList']['toggle']('over',tracking&&Y>S['lim']['n']),$('limit')['textContent']=S['lim']['n'],$('limAuto')['setAttribute']('aria-pressed',S['lim']['auto']);tracking&&speed===0x0?($('inst')['textContent']=fmt(idleLh(),0x1),$('instU')['textContent']='L/h'):($('inst')['textContent']=tracking&&inst!=null?fmt(inst,0x1):'—',$('instU')['textContent']='L/100\x20km');$('mode')['textContent']=tracking?speed>0x0&&roadType?roadType:modeOf(speed):'À\x20l\x27arrêt',$('cost')['textContent']=fmt(S['trip']['eur'],0x2),$('dist')['textContent']=fmt(S['trip']['km'],0x1),$('rangeHud')['textContent']=fmt(L,0x0),setOdo(),$('barHud')['style']['width']=Z+'%',$('fuelHud')['textContent']=fmt(Z,0x0)+'\x20%\x20·\x20'+fmt(Q,0x1)+'\x20L',$('bar')['style']['width']=Z+'%',$('pct')['textContent']=fmt(Z,0x0),$('lit')['textContent']=fmt(Q,0x1),$('rng')['textContent']=fmt(L,0x0);if(document['activeElement']!==$('lvl'))$('lvl')['value']=Z['toFixed'](0x1);sync('lvL',dv(Q,0x1)),sync('lvK',dv(L,0x0)),sync('lvP',dv(Z,0x1));for(const l of[$('barHud'),$('bar')])l['parentElement']['classList']['toggle']('low',Z<0xf);renderExtra(Q,L);}function renderLog(){$('log')['innerHTML']=S['log']['length']?S['log']['slice'](0x0,0x6)['map'](Y=>'<li><span>'+new Date(Y['t'])['toLocaleDateString']('fr-FR',{'day':'numeric','month':'short'})+'</span><div>'+(Y['full']?'Plein\x20complet':'')+(Y['l']?'\x20'+fmt(Y['l'],0x1)+'\x20L':'')+(Y['est']!=null&&Math['abs'](Y['est']-Y['l'])>0.05?'\x20(estimé\x20'+fmt(Y['est'],0x1)+'\x20L)':'')+(Y['eur']?'\x20·\x20'+fmt(Y['eur'],0x2)+'\x20€':'')+'</div></li>')['join'](''):'<li><span>Aucun\x20plein\x20enregistré</span></li>';}function fillCar(){const Y=S['v'];$('fModel')['value']=Y['model'],$('fType')['value']=Y['type'],$('fYear')['value']=Y['year'],$('fHp')['value']=Y['hp'],$('fGear')['value']=Y['gear'],$('fOdo')['value']=String(+Y['odo']['toFixed'](0x1))['replace']('.',','),$('fTank')['value']=String(Y['tank'])['replace']('.',','),$('fAvg')['value']=String(Y['avg'])['replace']('.',','),$('fPrice')['value']=String(Y['price'])['replace']('.',',');}function setLevel(Y){S['fuel']=S['v']['tank']*Math['max'](0x0,Math['min'](0x64,Y))/0x64,save(),render();}$('lvl')['oninput']=()=>setLevel(+$('lvl')['value']),document['querySelectorAll']('[data-p]')['forEach'](Y=>Y['onclick']=()=>setLevel(+Y['dataset']['p']));function setFuelL(Y){S['fuel']=Math['max'](0x0,Math['min'](S['v']['tank'],Y)),save(),render();}function fld(Y,N){$(Y)['onchange']=()=>{const Q=num($(Y)['value']);if(isNaN(Q)||Q<0x0){toast('Valeur\x20invalide'),render();return;}N(Q);};}fld('lvL',Y=>{if(Y>S['v']['tank'])toast('Limité\x20à\x20la\x20capacité\x20du\x20réservoir\x20('+fmt(S['v']['tank'],0x0)+'\x20L)');setFuelL(Y);}),fld('lvK',Y=>{const N=Y*S['v']['avg']/0x64;if(N>S['v']['tank'])toast('Autonomie\x20maximale\x20:\x20'+fmt(S['v']['tank']/S['v']['avg']*0x64,0x0)+'\x20km');setFuelL(N);}),fld('lvP',Y=>{if(Y>0x64)toast('Maximum\x20100\x20%');setLevel(Y);}),$('plProf')['onchange']=()=>{S['plan']['prof']=$('plProf')['value'],save(),render();},$('plKm')['onchange']=()=>{S['plan']['km']=$('plKm')['value'],save(),render();},$('plRsv')['onchange']=()=>{S['plan']['rsv']=$('plRsv')['value'],save(),render();},$('fullMin')['onchange']=()=>{S['cons']['min']=$('fullMin')['value'],save(),render();},$('go')['onclick']=()=>tracking?stop():start(),$('resetTrip')['onclick']=()=>{S['trip']={'km':0x0,'l':0x0,'eur':0x0},inst=null,last=null,save(),render(),toast('Nouveau\x20trajet\x20démarré');},$('limMinus')['onclick']=()=>stepLim(-0x1),$('limPlus')['onclick']=()=>stepLim(0x1),$('limAuto')['onclick']=()=>{S['lim']['auto']=!S['lim']['auto'],lastQ={'t':0x0},save(),render();},$('full')['onclick']=()=>{const Y=num($('fullL')['value']),N=S['cons'],Q=S['v']['tank']-fuel();S['fuel']=S['v']['tank'],S['log']['unshift']({'t':Date['now'](),'full':!![],'l':+(Y>0x0?Y:Q)['toFixed'](0x1),'est':Y>0x0?+Q['toFixed'](0x1):undefined}),S['log']=S['log']['slice'](0x0,0x1e);let Z='Réservoir\x20plein';if(Y>0x0&&N['base']){if(N['km']>=Math['max'](getMin(),0x1)){const l=(N['l']+Y)/N['km']*0x64;N['list']['unshift'](+l['toFixed'](0x2)),N['list']=N['list']['slice'](0x0,0x5);const b=N['list']['reduce']((m,O)=>m+O,0x0)/N['list']['length'];Z='Consommation\x20réelle\x20:\x20'+fmt(l,0x1)+'\x20L/100\x20km',confirm('Consommation\x20réelle\x20mesurée\x20:\x20'+fmt(l,0x1)+'\x20L/100\x20km\x20sur\x20'+fmt(N['km'],0x0)+'\x20km.\x0aMettre\x20votre\x20consommation\x20moyenne\x20à\x20'+fmt(b,0x1)+'\x20L/100\x20km\x20(moyenne\x20des\x20'+N['list']['length']+'\x20dernier'+(N['list']['length']>0x1?'s':'')+'\x20plein'+(N['list']['length']>0x1?'s':'')+')\x20?')&&(S['v']['avg']=+b['toFixed'](0x2),fillCar()),N['km']=0x0,N['l']=0x0;}else N['l']+=Y,Z='Trop\x20peu\x20de\x20kilomètres\x20depuis\x20le\x20dernier\x20plein\x20pour\x20mesurer\x20la\x20consommation';}else{N['base']=!![],N['km']=0x0,N['l']=0x0;if(Y>0x0)Z='Plein\x20de\x20référence\x20enregistré\x20:\x20la\x20consommation\x20réelle\x20sera\x20mesurée\x20au\x20prochain\x20plein\x20complet';}$('fullL')['value']='',save(),render(),renderLog(),toast(Z);},$('partial')['onsubmit']=Y=>{Y['preventDefault']();const N=num($('pL')['value']),Q=num($('pE')['value']);if(!(N>0x0)||!(Q>=0x0)||isNaN(Q)){toast('Indiquez\x20les\x20litres\x20et\x20le\x20prix\x20payé');return;}const Z=S['v']['tank']-fuel(),L=Math['min'](N,Z);S['fuel']=fuel()+L,S['log']['unshift']({'t':Date['now'](),'l':N,'eur':Q}),S['cons']['l']+=N,S['log']=S['log']['slice'](0x0,0x1e),$('pL')['value']=$('pE')['value']='',save(),render(),renderLog(),fillCar(),toast(N>Z?'Capacité\x20dépassée\x20:\x20réservoir\x20limité\x20à\x20'+fmt(S['v']['tank'],0x0)+'\x20L':'Carburant\x20ajouté');},$('carForm')['onsubmit']=Y=>{Y['preventDefault']();const N=num($('fOdo')['value']),Q=num($('fTank')['value']),Z=num($('fAvg')['value']),L=num($('fPrice')['value']);if(!(N>=0x0)||!(Q>0x0)||!(Z>0x0)||!(L>=0x0)){toast('Vérifiez\x20les\x20valeurs\x20saisies');return;}const l=fuel();S['v']={'model':$('fModel')['value']['trim'](),'odo':N,'tank':Q,'avg':Z,'price':L,'type':$('fType')['value'],'year':$('fYear')['value']['trim'](),'hp':$('fHp')['value']['trim'](),'gear':$('fGear')['value']},S['fuel']=Math['min'](l,Q),save(),render(),toast('Fiche\x20véhicule\x20enregistrée');},document['querySelectorAll']('nav\x20button')['forEach'](Y=>Y['onclick']=()=>{document['querySelectorAll']('nav\x20button')['forEach'](N=>N['classList']['toggle']('on',N===Y)),document['querySelectorAll']('.tab')['forEach'](N=>N['classList']['toggle']('active',N['id']==='tab-'+Y['dataset']['tab']));}),document['addEventListener']('visibilitychange',async()=>{if(document['hidden']){save();return;}if(tracking&&!wake)try{wake=await navigator['wakeLock']?.['request']('screen');}catch{}navigator['serviceWorker']?.['getRegistration']()['then'](Y=>Y?.['update']());}),addEventListener('pagehide',save),$('mini')['onclick']=()=>{const Y=document['body']['classList']['toggle']('compact');$('mini')['textContent']=Y?'Quitter':'Mini-HUD';};const CITY=new Map();let cityT;function suggest(Y){clearTimeout(cityT);const N=Y['value']['trim']();if(!N||CITY['has'](N))return;cityT=setTimeout(async()=>{try{const Q=N['length']<0x3,Z=Q?'https://geo.api.gouv.fr/communes?nom='+encodeURIComponent(N)+'&boost=population&fields=nom,centre,departement&limit=8':'https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(N)+'&type=municipality&autocomplete=1&limit=8'+(last?'&lat='+last['lat']+'&lon='+last['lon']:''),L=await(await fetch(Z))['json'](),l=Q?L['map'](b=>({'name':b['nom'],'label':b['nom']+'\x20('+(b['departement']?b['departement']['code']:'')+')','lon':b['centre']['coordinates'][0x0],'lat':b['centre']['coordinates'][0x1]})):L['features']['map'](b=>({'name':b['properties']['city']||b['properties']['name'],'label':(b['properties']['city']||b['properties']['name'])+'\x20('+(b['properties']['context']||'')['split'](',')[0x0]+')','lon':b['geometry']['coordinates'][0x0],'lat':b['geometry']['coordinates'][0x1]}));$('cities')['innerHTML']='';for(const b of l){CITY['set'](b['label'],b);const m=document['createElement']('option');m['value']=b['label'],$('cities')['appendChild'](m);}}catch{}},0xfa);}$('rFrom')['oninput']=()=>suggest($('rFrom')),$('rTo')['oninput']=()=>suggest($('rTo'));const esc=Y=>String(Y)['replace'](/[&<>"]/g,N=>({'&':'&amp;','<':'&lt;','>':'&gt;','\x22':'&quot;'}[N]));async function geo(Y){const N=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q='+encodeURIComponent(Y)))['json']();if(!N['length'])throw new Error('Lieu\x20introuvable\x20:\x20'+Y);return{'lon':N[0x0]['lon'],'lat':N[0x0]['lat'],'name':N[0x0]['display_name']['split'](',')[0x0]};}$('routeForm')['onsubmit']=async Y=>{Y['preventDefault']();const N=$('rFrom')['value']['trim'](),Q=$('rTo')['value']['trim'](),Z=$('routeRes');if(!N||!Q){toast('Indiquez\x20un\x20départ\x20et\x20une\x20arrivée');return;}Z['hidden']=![],Z['textContent']='Calcul\x20en\x20cours…';try{const L=CITY['get'](N)||await geo(N);if(!CITY['get'](N)&&!CITY['get'](Q))await new Promise(c=>setTimeout(c,0x44c));const b=CITY['get'](Q)||await geo(Q),O=await(await fetch('https://router.project-osrm.org/route/v1/driving/'+L['lon']+','+L['lat']+';'+b['lon']+','+b['lat']+'?overview=false'))['json'](),V=O['routes']&&O['routes'][0x0];if(!V)throw new Error('Aucun\x20itinéraire\x20trouvé');const T=V['distance']/0x3e8,U=V['duration']/0xe10,E=T*conso(T/U)/0x64,C=E*S['v']['price'],z=Math['round'](U*0x3c),I=E>fuel()?'<em>Réservoir\x20insuffisant\x20:\x20il\x20manquera\x20'+fmt(E-fuel(),0x1)+'\x20L,\x20prévoyez\x20un\x20plein.</em>':'<em>Le\x20carburant\x20restant\x20suffit\x20pour\x20ce\x20trajet.</em>';Z['innerHTML']='<span>'+esc(L['name'])+'\x20→\x20'+esc(b['name'])+'</span><b>'+fmt(C,0x2)+'</b><small>€\x20estimés</small><div\x20class=\x22two\x22><div><b>'+fmt(T,0x0)+'</b><small>km</small></div><div><b>'+fmt(E,0x1)+'</b><small>L\x20('+esc(S['v']['type'])+')</small></div><div><b>'+Math['floor'](z/0x3c)+'\x20h\x20'+String(z%0x3c)['padStart'](0x2,'0')+'</b><small>durée</small></div></div>'+I;}catch(c){Z['textContent']=c['message']&&c['message']['length']<0x50?c['message']:'Calcul\x20impossible\x20:\x20vérifiez\x20votre\x20connexion';}};const FILES=['index.html','style.css','app.js','manifest.json','icon-180.png','icon-192.png','icon-512.png'];function setProg(Y,N){const Q=$('splash');if(!Q)return;Q['style']['setProperty']('--p',Y/0x64),$('spPct')['textContent']=Math['round'](Y)+'\x20%';if(N)$('spTxt')['textContent']=N;}function hideSplash(){const Y=$('splash');if(!Y)return;Y['classList']['add']('out'),setTimeout(()=>Y['classList']['add']('gone'),0x1c2);}async function runUpdate(){$('splash')['classList']['add']('upd'),setProg(0x5,'Mise\x20à\x20jour\x20vers\x20'+VERSION);try{const Y=await caches['open']('autoconso-'+VERSION);for(let N=0x0;N<FILES['length'];N++){const Q=await fetch(FILES[N],{'cache':'no-store'});if(Q['ok'])await Y['put'](FILES[N],Q);setProg(0xa+(N+0x1)/FILES['length']*0x55);}}catch{}setProg(0x64,'Terminé'),await new Promise(Z=>setTimeout(Z,0x1f4));}((async()=>{const Y=Date['now']();let N=null,Q=![];try{N=localStorage['getItem']('ac.ver'),Q=!!localStorage['getItem'](KEY);}catch{}if(N&&N!==VERSION||!N&&Q)await runUpdate();try{localStorage['setItem']('ac.ver',VERSION);}catch{}setTimeout(hideSplash,Math['max'](0x0,0x44c-(Date['now']()-Y)));})()),setTimeout(hideSplash,0x1770),$('plProf')['value']=S['plan']['prof'],$('plKm')['value']=S['plan']['km'],$('plRsv')['value']=S['plan']['rsv']??'50',$('fullMin')['value']=S['cons']['min']??'30',$('ver')['textContent']=VERSION,fillCar(),renderLog(),render();const NATIVE=!!(window['Capacitor']&&window['Capacitor']['isNativePlatform']&&window['Capacitor']['isNativePlatform']());if(!NATIVE&&'serviceWorker'in navigator){const had=!!navigator['serviceWorker']['controller'];navigator['serviceWorker']['register']('sw.js',{'updateViaCache':'none'})['then'](Y=>Y['update']())['catch'](()=>{});}
+'use strict';
+const VERSION='1.5.1',KEY='autoconso.v1',$=i=>document.getElementById(i)||document.createElement('div');
+const DEF={v:{model:'',odo:180000,tank:50,avg:6.5,price:1.85,type:'SP95-E10',year:'',hp:'',gear:'Manuelle'},fuel:null,trip:{km:0,l:0,eur:0},lim:{n:50,auto:true},log:[],plan:{prof:'150',km:'',rsv:'50'},cons:{km:0,l:0,base:false,list:[],min:'30'}};
+let S=load();
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY))||{};return{...structuredClone(DEF),...s,v:{...DEF.v,...s.v},trip:{...DEF.trip,...s.trip},lim:{...DEF.lim,...s.lim}}}catch{return structuredClone(DEF)}}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
+const fmt=(x,d=0)=>Number(x).toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const num=s=>parseFloat(String(s).replace(/\s/g,'').replace(',','.'));
+const fuel=()=>S.fuel==null?S.v.tank:Math.min(S.fuel,S.v.tank);
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),3200)}
+
+/* ---- Modèle de consommation : multiplicateur de la conso moyenne selon la vitesse ---- */
+const CURVE=[[0,1.3],[10,1.5],[30,1.25],[50,1.05],[70,.88],[90,.9],[110,1.1],[130,1.4],[150,1.8],[190,2.6]];
+function mult(v){for(let i=1;i<CURVE.length;i++){const a=CURVE[i-1],b=CURVE[i];if(v<=b[0])return a[1]+(b[1]-a[1])*(Math.max(v,a[0])-a[0])/(b[0]-a[0])}return CURVE[CURVE.length-1][1]}
+const conso=v=>S.v.avg*mult(v);          // L/100 km
+const idleLh=()=>S.v.avg*.12;            // L/h au ralenti
+const modeOf=v=>v<3?'À l\'arrêt':v<60?'Ville':v<100?'Route':'Autoroute';
+function burn(dl){dl=Math.min(dl,fuel());S.fuel=fuel()-dl;S.trip.l+=dl;S.trip.eur+=dl*S.v.price}
+
+/* ---- GPS ---- */
+let zeros=0,tracking=false,watchId=null,last=null,speed=0,inst=null,lastFixAt=0,lastTick=0,stopSince=null,wake=null,lastSave=0,pendingReload=false;
+const rad=x=>x*Math.PI/180;
+function hav(a,b){const R=6371000,la=a.lat??a.latitude,lo=a.lon??a.longitude,lb=b.lat??b.latitude,lc=b.lon??b.longitude;
+ const h=Math.sin(rad(lb-la)/2)**2+Math.cos(rad(la))*Math.cos(rad(lb))*Math.sin(rad(lc-lo)/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function setGps(s,t){$('gps').className='gps '+s;$('gpsTxt').textContent=t}
+function onFix(p){
+ const c=p.coords,t=p.timestamp;
+ if(c.accuracy>120){setGps('weak','Signal GPS faible');return}
+ lastFixAt=Date.now();setGps(c.accuracy>50?'weak':'ok',c.accuracy>50?'GPS approximatif':'GPS actif');
+ let v=c.speed!=null&&!isNaN(c.speed)?c.speed*3.6:null,d=0,segV=null;
+ if(last){const dt=(t-last.t)/1000;d=hav(last,c);
+  if(dt>0){const dv=d/dt*3.6;if(v==null)v=dv;segV=dv;if(dt>300||dv>250){d=0;segV=null}}}
+ if(v!=null&&v<2&&speed>8&&zeros<3){zeros++;v=segV!=null&&segV>6?segV:speed*.7}else if(v==null||v>=2)zeros=0; // ignore les « 0 » isolés du GPS
+ v=v==null||v<2?0:v;speed=v;
+ if(v>0){const ci=conso(v);inst=inst==null?ci:inst*.7+ci*.3}
+ if(v>0&&d>1&&segV!=null&&c.accuracy<=100){const km=d/1000;S.v.odo+=km;S.trip.km+=km;S.cons.km+=km;burn(km*conso(segV)/100)}
+ last={lat:c.latitude,lon:c.longitude,t};
+ lookup(c);render();
+}
+function onErr(e){if(e.code===1){setGps('err','Autorisation GPS refusée');stop()}else setGps('weak','Signal GPS perdu')}
+function showIntro(){return new Promise(r=>{$('intro').hidden=false;$('introOk').onclick=()=>{try{localStorage.setItem('ac.geo','1')}catch{}$('intro').hidden=true;r()}})}
+async function start(){
+ if(!navigator.geolocation){toast('GPS indisponible sur cet appareil');return}
+ if(!localStorage.getItem('ac.geo'))await showIntro();
+ roadType=null;tracking=true;$('go').textContent='Arrêter le GPS';last=null;inst=null;lastTick=Date.now();setGps('weak','Recherche du signal…');
+ watchId=navigator.geolocation.watchPosition(onFix,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:30000});
+ try{wake=await navigator.wakeLock?.request('screen')}catch{}
+ $('go').textContent='Arrêter le GPS';render();
+}
+function stop(){
+ tracking=false;if(watchId!=null)navigator.geolocation.clearWatch(watchId);watchId=null;
+ try{wake?.release()}catch{}wake=null;speed=0;inst=null;stopSince=null;
+ $('go').textContent='Démarrer le GPS';if(!$('gps').classList.contains('err'))setGps('','GPS à l\'arrêt');
+ save();render();if(pendingReload)location.reload();
+}
+setInterval(()=>{
+ if(!tracking)return;const now=Date.now(),dt=(now-lastTick)/1000;lastTick=now;
+ if(lastFixAt&&now-lastFixAt>15000){speed=0;setGps('weak','Signal GPS perdu')}
+ if(speed>0)stopSince=null;else{
+  stopSince=stopSince||now; // ralenti pris en compte 2 min max (ensuite : moteur supposé coupé)
+  if(now-stopSince<120000)burn(idleLh()*dt/3600)}
+ if(now-lastSave>5000){save();lastSave=now}
+ if(!document.hidden)render();
+},1000);
+
+/* ---- Limitation de vitesse (OpenStreetMap, ou réglage manuel) ---- */
+const LIMS=[20,30,50,70,80,90,110,130];
+let lastQ={t:0};
+function parseMax(s){s=String(s).trim();const m={'FR:urban':50,'FR:rural':80,'FR:motorway':130,urban:50,rural:80,motorway:130}[s];if(m)return m;
+ const r=s.match(/^(\d+)(\s*mph)?$/);return r?(r[2]?Math.round(r[1]*1.609/5)*5:+r[1]):null}
+const CLASS={motorway:['Autoroute',130],motorway_link:['Autoroute',90],trunk:['Route',110],trunk_link:['Route',70],primary:['Route',80],secondary:['Route',80],tertiary:['Route',80],unclassified:['Route',80],residential:['Ville',50],living_street:['Ville',20],service:['Ville',30]};
+let roadType=null;
+async function lookup(c){
+ if(!navigator.onLine)return;const now=Date.now();
+ if(now-lastQ.t<8000||(lastQ.lat!=null&&now-lastQ.t<60000&&hav(lastQ,c)<100))return;
+ lastQ={t:now,lat:c.latitude,lon:c.longitude};
+ try{const ac=new AbortController();setTimeout(()=>ac.abort(),8000);
+  const q=`[out:json][timeout:7];way(around:15,${c.latitude},${c.longitude})[highway];out tags;`;
+  const j=await(await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q),{signal:ac.signal})).json();
+  const w=j.elements.map(e=>e.tags).filter(t=>CLASS[t.highway]).sort((x,y)=>(!!y.maxspeed-!!x.maxspeed)||(CLASS[y.highway][1]-CLASS[x.highway][1]))[0];
+  if(!w)return;
+  roadType=CLASS[w.highway][0];
+  if(S.lim.auto)S.lim.n=parseMax(w.maxspeed)||CLASS[w.highway][1];
+  render();
+ }catch{}
+}
+function stepLim(dir){
+ let i=LIMS.findIndex(x=>x>=S.lim.n);if(i<0)i=LIMS.length-1;
+ if(LIMS[i]!==S.lim.n&&dir<0)i++; // plus proche valeur inférieure
+ S.lim.n=LIMS[Math.max(0,Math.min(LIMS.length-1,i+dir))];S.lim.auto=false;save();render();
+}
+
+/* ---- Affichage ---- */
+let odoStr='';
+function setOdo(){const s=Math.floor(S.v.odo).toString().padStart(6,'0')+Math.floor(S.v.odo*10)%10;if(s===odoStr)return;odoStr=s;$('odo').innerHTML=[...s].map((d,i)=>`<i${i===s.length-1?' class="t"':''}>${d}</i>`).join('')}
+const dv=(x,d)=>String(+x.toFixed(d)).replace('.',',');
+const sync=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};
+const getRsv=()=>{const v=num(S.plan.rsv);return v>=0?v:50}; // km gardés en réserve (réglable)
+const getMin=()=>{const v=num(S.cons.min);return v>=0?v:30}; // km minimum entre deux pleins pour mesurer
+function renderExtra(f,rng){
+ const RESERVE=getRsv();
+ // calculateur de plein
+ const need=Math.max(0,S.v.tank-f);
+ $('cfL').textContent=fmt(need,1);$('cfE').textContent=fmt(need*S.v.price,2);
+ const b=num($('cfB').value);
+ if(b>0&&S.v.price>0){
+  const lb=b/S.v.price,nl=Math.min(S.v.tank,f+lb);
+  $('cfR').textContent=`${fmt(b,2)} € = ${fmt(lb,1)} L. Niveau après : ${fmt(nl/S.v.tank*100,0)} % (${fmt(nl/S.v.avg*100,0)} km d'autonomie).`+(lb>need?` Attention : cela dépasse le plein, maximum ${fmt(need*S.v.price,2)} €.`:'');
+ }else $('cfR').textContent='';
+ // quand refaire le plein
+ const pr=S.plan.prof,kmw=pr==='0'?num(S.plan.km):+pr;
+ $('plCustom').hidden=pr!=='0';
+ if(!(kmw>0))$('plRes').textContent='Indiquez vos kilomètres par semaine.';
+ else if(rng<=RESERVE)$('plRes').textContent=`Il reste environ ${fmt(rng,0)} km : faites le plein dès que possible.`;
+ else{
+  const days=Math.floor((rng-RESERVE)/(kmw/7)),d=new Date(Date.now()+days*864e5);
+  $('plRes').textContent=`Avec ${fmt(rng,0)} km d'autonomie et environ ${fmt(kmw,0)} km par semaine, prévoyez le plein dans ${days} jour${days>1?'s':''}, vers le ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} (en gardant ${RESERVE} km de réserve).`;
+ }
+ // consommation réelle
+ const c=S.cons;
+ $('realC').textContent=c.list.length?`Dernière mesure : ${fmt(c.list[0],1)} L/100 km (sur ${c.list.length} plein${c.list.length>1?'s':''}). Depuis le dernier plein : ${fmt(c.km,0)} km.`
+  :c.base?`Depuis le dernier plein complet : ${fmt(c.km,0)} km. Indiquez les litres mis à la pompe au prochain plein complet pour mesurer votre vraie consommation.`
+  :`Au prochain plein complet, indiquez les litres mis à la pompe : l'app mesurera votre vraie consommation.`;
+}
+function render(){
+ const v=Math.round(speed),T=S.v.tank,f=fuel(),pct=T>0?f/T*100:0,rng=S.v.avg>0?f/S.v.avg*100:0;
+ $('speed').textContent=v;$('hud').classList.toggle('over',tracking&&v>S.lim.n);
+ $('limit').textContent=S.lim.n;$('limAuto').setAttribute('aria-pressed',S.lim.auto);
+ if(tracking&&speed===0){$('inst').textContent=fmt(idleLh(),1);$('instU').textContent='L/h'}
+ else{$('inst').textContent=tracking&&inst!=null?fmt(inst,1):'—';$('instU').textContent='L/100 km'}
+ $('mode').textContent=tracking?(speed>0&&roadType?roadType:modeOf(speed)):'À l\'arrêt';
+ $('cost').textContent=fmt(S.trip.eur,2);$('dist').textContent=fmt(S.trip.km,1);
+ $('rangeHud').textContent=fmt(rng,0);setOdo();
+ $('barHud').style.width=pct+'%';$('fuelHud').textContent=`${fmt(pct,0)} % · ${fmt(f,1)} L`;
+ $('bar').style.width=pct+'%';$('pct').textContent=fmt(pct,0);$('lit').textContent=fmt(f,1);$('rng').textContent=fmt(rng,0);setRule(rng);sync('lvL',dv(f,1));sync('lvK',dv(rng,0));sync('lvP',dv(pct,1));
+ for(const e of[$('barHud'),$('bar')])e.parentElement.classList.toggle('low',pct<15);
+ renderExtra(f,rng);
+}
+function renderLog(){
+ $('log').innerHTML=S.log.length?S.log.slice(0,6).map(l=>`<li><span>${new Date(l.t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span><div>${l.full?'Plein complet':''}${l.l?' '+fmt(l.l,1)+' L':''}${l.est!=null&&Math.abs(l.est-l.l)>0.05?' (estimé '+fmt(l.est,1)+' L)':''}${l.eur?' · '+fmt(l.eur,2)+' €':''}</div></li>`).join(''):'<li><span>Aucun plein enregistré</span></li>';
+}
+function fillCar(){const v=S.v;$('fModel').value=v.model;$('fType').value=v.type;$('fYear').value=v.year;$('fHp').value=v.hp;$('fGear').value=v.gear;$('fOdo').value=String(+v.odo.toFixed(1)).replace('.',',');$('fTank').value=String(v.tank).replace('.',',');$('fAvg').value=String(v.avg).replace('.',',');$('fPrice').value=String(v.price).replace('.',',')}
+
+/* ---- Actions ---- */
+function setLevel(p){S.fuel=S.v.tank*Math.max(0,Math.min(100,p))/100;save();render()}
+/* ---- Règle de réglage : 1 petit trait = 1 km d'autonomie ---- */
+const PX=4; // pixels de glissement du doigt pour 1 km
+let ruleDrag=false,ruleRaf=0,ruleKm=0;
+const maxKm=()=>S.v.avg>0?S.v.tank/S.v.avg*100:0;
+function drawRule(k){$('ruleV').textContent=k;$('rule').style.setProperty('--x',(-k*PX)+'px');$('rule').setAttribute('aria-valuenow',k);$('rule').setAttribute('aria-valuemax',Math.floor(maxKm()))}
+function setRule(km){if(ruleDrag||ruleRaf)return;ruleKm=km;$('ruleT').style.width=((Math.floor(maxKm())+1)*PX+4)+'px';drawRule(Math.round(km))}
+function applyKm(k){const m=Math.floor(maxKm());ruleKm=Math.max(0,Math.min(m,k));const r=Math.round(ruleKm);drawRule(r);S.fuel=Math.min(S.v.tank,r*S.v.avg/100);render()}
+(function(){
+ const R=$('rule');let sx=0,sk=0,lx=0,lt=0,vel=0;
+ function inertia(){
+  let v=vel*16;
+  (function step(){
+   v*=0.94;
+   if(Math.abs(v)<0.04){ruleRaf=0;save();render();return}
+   applyKm(ruleKm+v);
+   if(ruleKm<=0||ruleKm>=Math.floor(maxKm()))v=0;
+   ruleRaf=requestAnimationFrame(step);
+  })();
+ }
+ R.addEventListener('pointerdown',e=>{ruleDrag=true;if(ruleRaf){cancelAnimationFrame(ruleRaf);ruleRaf=0}sx=lx=e.clientX;sk=Math.round(fuel()/S.v.avg*100);lt=e.timeStamp;vel=0;try{R.setPointerCapture(e.pointerId)}catch{}});
+ R.addEventListener('pointermove',e=>{
+  if(!ruleDrag)return;
+  const dt=e.timeStamp-lt;if(dt>0)vel=.8*vel+.2*((e.clientX-lx)/PX/dt);
+  lx=e.clientX;lt=e.timeStamp;applyKm(sk+(e.clientX-sx)/PX);
+ });
+ const end=()=>{if(!ruleDrag)return;ruleDrag=false;save();inertia()};
+ R.addEventListener('pointerup',end);R.addEventListener('pointercancel',end);
+ R.addEventListener('keydown',e=>{const d=(e.key==='ArrowRight'||e.key==='ArrowUp')?1:(e.key==='ArrowLeft'||e.key==='ArrowDown')?-1:0;if(!d)return;e.preventDefault();applyKm(Math.round(ruleKm)+d*(e.shiftKey?10:1));save()});
+})();
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>setLevel(+b.dataset.p));
+function setFuelL(l){S.fuel=Math.max(0,Math.min(S.v.tank,l));save();render()}
+function fld(id,fn){$(id).onchange=()=>{const v=num($(id).value);if(isNaN(v)||v<0){toast('Valeur invalide');render();return}fn(v)}}
+fld('lvL',l=>{if(l>S.v.tank)toast('Limité à la capacité du réservoir ('+fmt(S.v.tank,0)+' L)');setFuelL(l)});
+fld('lvK',k=>{const l=k*S.v.avg/100;if(l>S.v.tank)toast('Autonomie maximale : '+fmt(S.v.tank/S.v.avg*100,0)+' km');setFuelL(l)});
+fld('lvP',p=>{if(p>100)toast('Maximum 100 %');setLevel(p)});
+$('plProf').onchange=()=>{S.plan.prof=$('plProf').value;save();render()};
+$('plKm').onchange=()=>{S.plan.km=$('plKm').value;save();render()};
+$('plRsv').onchange=()=>{S.plan.rsv=$('plRsv').value;save();render()};
+$('fullMin').onchange=()=>{S.cons.min=$('fullMin').value;save();render()};
+$('go').onclick=()=>tracking?stop():start();
+$('resetTrip').onclick=()=>{S.trip={km:0,l:0,eur:0};inst=null;last=null;save();render();toast('Nouveau trajet démarré')};
+$('limMinus').onclick=()=>stepLim(-1);$('limPlus').onclick=()=>stepLim(1);
+$('limAuto').onclick=()=>{S.lim.auto=!S.lim.auto;lastQ={t:0};save();render()};
+$('full').onclick=()=>{
+ const L=num($('fullL').value),c=S.cons;
+ const added=S.v.tank-fuel();S.fuel=S.v.tank;
+ S.log.unshift({t:Date.now(),full:true,l:+(L>0?L:added).toFixed(1),est:L>0?+added.toFixed(1):undefined});S.log=S.log.slice(0,30);
+ let msg='Réservoir plein';
+ if(L>0&&c.base){
+  if(c.km>=Math.max(getMin(),1)){
+   const real=(c.l+L)/c.km*100;
+   c.list.unshift(+real.toFixed(2));c.list=c.list.slice(0,5);
+   const mean=c.list.reduce((x,y)=>x+y,0)/c.list.length;
+   msg='Consommation réelle : '+fmt(real,1)+' L/100 km';
+   if(confirm(`Consommation réelle mesurée : ${fmt(real,1)} L/100 km sur ${fmt(c.km,0)} km.\nMettre votre consommation moyenne à ${fmt(mean,1)} L/100 km (moyenne des ${c.list.length} dernier${c.list.length>1?'s':''} plein${c.list.length>1?'s':''}) ?`)){S.v.avg=+mean.toFixed(2);fillCar()}
+   c.km=0;c.l=0;
+  }else{c.l+=L;msg='Trop peu de kilomètres depuis le dernier plein pour mesurer la consommation'}
+ }else{c.base=true;c.km=0;c.l=0;if(L>0)msg='Plein de référence enregistré : la consommation réelle sera mesurée au prochain plein complet'}
+ $('fullL').value='';save();render();renderLog();toast(msg);
+};
+$('partial').onsubmit=e=>{
+ e.preventDefault();const l=num($('pL').value),eur=num($('pE').value);
+ if(!(l>0)||!(eur>=0)||isNaN(eur)){toast('Indiquez les litres et le prix payé');return}
+ const room=S.v.tank-fuel(),add=Math.min(l,room);
+ S.fuel=fuel()+add;
+ S.log.unshift({t:Date.now(),l,eur});S.cons.l+=l;S.log=S.log.slice(0,30);
+ $('pL').value=$('pE').value='';save();render();renderLog();fillCar();
+ toast(l>room?`Capacité dépassée : réservoir limité à ${fmt(S.v.tank,0)} L`:'Carburant ajouté');
+};
+$('carForm').onsubmit=e=>{
+ e.preventDefault();const o=num($('fOdo').value),t=num($('fTank').value),a=num($('fAvg').value),p=num($('fPrice').value);
+ if(!(o>=0)||!(t>0)||!(a>0)||!(p>=0)){toast('Vérifiez les valeurs saisies');return}
+ const f=fuel();S.v={model:$('fModel').value.trim(),odo:o,tank:t,avg:a,price:p,type:$('fType').value,year:$('fYear').value.trim(),hp:$('fHp').value.trim(),gear:$('fGear').value};S.fuel=Math.min(f,t);
+ save();render();toast('Fiche véhicule enregistrée');
+};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id==='tab-'+b.dataset.tab));
+});
+document.addEventListener('visibilitychange',async()=>{
+ if(document.hidden){save();return}
+ if(tracking&&!wake){try{wake=await navigator.wakeLock?.request('screen')}catch{}}
+ navigator.serviceWorker?.getRegistration().then(r=>r?.update());
+});
+addEventListener('pagehide',save);
+
+/* ---- Mini-HUD (à côté de Waze en écran partagé) ---- */
+$('mini').onclick=()=>{const on=document.body.classList.toggle('compact');$('mini').textContent=on?'Quitter':'Mini-HUD'};
+
+/* ---- Suggestions de villes (données ouvertes de l'État) ---- */
+const CITY=new Map();let cityT;
+function suggest(inp){
+ clearTimeout(cityT);const q=inp.value.trim();if(!q||CITY.has(q))return;
+ cityT=setTimeout(async()=>{
+  try{
+   const short=q.length<3;
+   const u=short?`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&boost=population&fields=nom,centre,departement&limit=8`
+    :`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&type=municipality&autocomplete=1&limit=8`+(last?`&lat=${last.lat}&lon=${last.lon}`:'');
+   const j=await(await fetch(u)).json();
+   const items=short?j.map(x=>({name:x.nom,label:`${x.nom} (${x.departement?x.departement.code:''})`,lon:x.centre.coordinates[0],lat:x.centre.coordinates[1]}))
+    :j.features.map(f=>({name:f.properties.city||f.properties.name,label:`${f.properties.city||f.properties.name} (${(f.properties.context||'').split(',')[0]})`,lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1]}));
+   $('cities').innerHTML='';
+   for(const i of items){CITY.set(i.label,i);const o=document.createElement('option');o.value=i.label;$('cities').appendChild(o)}
+  }catch{}
+ },250);
+}
+$('rFrom').oninput=()=>suggest($('rFrom'));$('rTo').oninput=()=>suggest($('rTo'));
+
+/* ---- Calculateur de trajet (OpenStreetMap : adresses + itinéraire) ---- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function geo(q){
+ const j=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q='+encodeURIComponent(q))).json();
+ if(!j.length)throw new Error('Lieu introuvable : '+q);
+ return{lon:j[0].lon,lat:j[0].lat,name:j[0].display_name.split(',')[0]};
+}
+$('routeForm').onsubmit=async e=>{
+ e.preventDefault();const f=$('rFrom').value.trim(),t=$('rTo').value.trim(),box=$('routeRes');
+ if(!f||!t){toast('Indiquez un départ et une arrivée');return}
+ box.hidden=false;box.textContent='Calcul en cours…';
+ try{
+  const A=CITY.get(f)||await geo(f);if(!CITY.get(f)&&!CITY.get(t))await new Promise(r=>setTimeout(r,1100)); // Nominatim : 1 requête par seconde
+  const B=CITY.get(t)||await geo(t);
+  const j=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lon},${A.lat};${B.lon},${B.lat}?overview=false`)).json();
+  const rt=j.routes&&j.routes[0];if(!rt)throw new Error('Aucun itinéraire trouvé');
+  const km=rt.distance/1000,h=rt.duration/3600,l=km*conso(km/h)/100,eur=l*S.v.price,m=Math.round(h*60);
+  const need=l>fuel()?`<em>Réservoir insuffisant : il manquera ${fmt(l-fuel(),1)} L, prévoyez un plein.</em>`:'<em>Le carburant restant suffit pour ce trajet.</em>';
+  box.innerHTML=`<span>${esc(A.name)} → ${esc(B.name)}</span><b>${fmt(eur,2)}</b><small>€ estimés</small><div class="two"><div><b>${fmt(km,0)}</b><small>km</small></div><div><b>${fmt(l,1)}</b><small>L (${esc(S.v.type)})</small></div><div><b>${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}</b><small>durée</small></div></div>${need}`;
+ }catch(err){box.textContent=err.message&&err.message.length<80?err.message:'Calcul impossible : vérifiez votre connexion'}
+};
+
+/* ---- Écran de démarrage : « Mise à jour » seulement à la première ouverture d'une nouvelle version ---- */
+const FILES=['index.html','style.css','app.js','manifest.json','icon-180.png','icon-192.png','icon-512.png'];
+function setProg(p,t){const s=$('splash');if(!s)return;s.style.setProperty('--p',p/100);$('spPct').textContent=Math.round(p)+' %';if(t)$('spTxt').textContent=t}
+function hideSplash(){const s=$('splash');if(!s)return;s.classList.add('out');setTimeout(()=>s.classList.add('gone'),450)}
+async function runUpdate(){
+ $('splash').classList.add('upd');setProg(5,'Mise à jour vers '+VERSION);
+ try{
+  const c=await caches.open('autoconso-'+VERSION);
+  for(let i=0;i<FILES.length;i++){const r=await fetch(FILES[i],{cache:'no-store'});if(r.ok)await c.put(FILES[i],r);setProg(10+(i+1)/FILES.length*85)}
+ }catch{}
+ setProg(100,'Terminé');await new Promise(r=>setTimeout(r,500));
+}
+(async()=>{
+ const t0=Date.now();let prev=null,hadData=false;
+ try{prev=localStorage.getItem('ac.ver');hadData=!!localStorage.getItem(KEY)}catch{}
+ if((prev&&prev!==VERSION)||(!prev&&hadData))await runUpdate();
+ try{localStorage.setItem('ac.ver',VERSION)}catch{}
+ setTimeout(hideSplash,Math.max(0,1100-(Date.now()-t0)));
+})();
+setTimeout(hideSplash,6000); // sécurité : l'app ne reste jamais bloquée sur l'écran de démarrage
+
+/* ---- Démarrage & mise à jour automatique ---- */
+$('plProf').value=S.plan.prof;$('plKm').value=S.plan.km;$('plRsv').value=S.plan.rsv??'50';$('fullMin').value=S.cons.min??'30';$('ver').textContent=VERSION;fillCar();renderLog();render();
+const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+if(!NATIVE&&'serviceWorker'in navigator){
+ const had=!!navigator.serviceWorker.controller;
+ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+}

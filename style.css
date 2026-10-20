@@ -92,3 +92,16 @@ input[type=range]{min-height:32px;padding:0;accent-color:var(--amber)}
 #splash.upd .sbar i{animation:none;transform:scaleX(var(--p,0));transition:transform .3s}
 #splash p{margin:0;color:var(--mute)}#splash b{font-size:22px;color:var(--amber)}
 #splash p:empty,#splash b:empty{display:none}
+
+[hidden]{display:none!important}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.trio label{margin:0}.trio input{padding:0 8px;font-size:16px}
+.card p{margin:8px 0 0;color:var(--mute);font-size:14px}
+
+.rule{position:relative;height:104px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#000;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none;--x:0px}
+.rule .ticks{position:absolute;left:50%;bottom:0;height:30px;transform:translateX(var(--x));will-change:transform;
+ background-image:repeating-linear-gradient(90deg,#3a424c 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,#8b96a3 0 2px,transparent 2px 40px);
+ background-size:100% 14px,100% 28px;background-position:left bottom,left bottom;background-repeat:no-repeat}
+.rule .needle{position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--amber)}
+.rule .rv{position:absolute;top:8px;left:0;right:0;text-align:center;pointer-events:none}
+.rule .rv b{font-size:40px;line-height:1}

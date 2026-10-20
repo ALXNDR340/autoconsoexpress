@@ -68,9 +68,32 @@
  </div>
  <div class="card"><h2>Niveau actuel du réservoir</h2>
   <div class="presets"><button type="button" data-p="25">¼</button><button type="button" data-p="50">½</button><button type="button" data-p="75">¾</button><button type="button" data-p="100">Plein</button></div>
-  <input id="lvl" type="range" min="0" max="100" step="1" aria-label="Niveau du réservoir">
+  <div id="rule" class="rule" role="slider" tabindex="0" aria-label="Autonomie en kilomètres" aria-valuemin="0"><div id="ruleT" class="ticks"></div><i class="needle"></i><div class="rv"><b id="ruleV">0</b><small>km d'autonomie</small></div></div>
+  <p>Fais glisser la règle : chaque petit trait vaut 1 km.</p>
+  <div class="trio">
+   <label>Litres<input id="lvL" inputmode="decimal"></label>
+   <label>Autonomie (km)<input id="lvK" inputmode="decimal"></label>
+   <label>Niveau (%)<input id="lvP" inputmode="decimal"></label>
+  </div>
  </div>
- <button type="button" id="full" class="primary wide">Refaire le plein</button>
+ <div class="card"><h2>Calculateur de plein</h2>
+  <span>Pour faire le plein complet</span>
+  <div class="two"><div><b id="cfL">—</b><small>L à ajouter</small></div><div><b id="cfE">—</b><small>€</small></div></div>
+  <label>Ou : je veux mettre (€)<input id="cfB" inputmode="decimal" placeholder="ex. 30"></label>
+  <p id="cfR"></p>
+ </div>
+ <div class="card"><h2>Quand refaire le plein ?</h2>
+  <label>Je roule<select id="plProf"><option value="50">Peu (environ 50 km par semaine)</option><option value="150">Moyennement (environ 150 km)</option><option value="400">Beaucoup (environ 400 km)</option><option value="0">Je saisis moi-même</option></select></label>
+  <label id="plCustom" hidden>Kilomètres par semaine<input id="plKm" inputmode="decimal" placeholder="ex. 220"></label>
+  <label>Réserve à garder (km)<input id="plRsv" inputmode="decimal" placeholder="50"></label>
+  <p id="plRes"></p>
+ </div>
+ <div class="card"><h2>Plein complet</h2>
+  <label>Litres réellement mis à la pompe (facultatif)<input id="fullL" inputmode="decimal" placeholder="ex. 38,4"></label>
+  <label>Distance minimale pour mesurer (km)<input id="fullMin" inputmode="decimal" placeholder="30"></label>
+  <button type="button" id="full" class="primary wide">Refaire le plein</button>
+  <p id="realC"></p>
+ </div>
  <form id="partial" class="card" autocomplete="off">
   <h2>Plein partiel</h2>
   <label>Litres ajoutés<input id="pL" inputmode="decimal" placeholder="ex. 32,5"></label>
